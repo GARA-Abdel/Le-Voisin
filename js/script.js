@@ -6,8 +6,14 @@ const GITHUB_USER = "GARA-Abdel";
 const GITHUB_REPO = "Le-Voisin";
 const GITHUB_BRANCHE = "main";
 
-// Dossiers de catégories (doivent exister dans /images/)
-const CATEGORIES = ["telephones", "accessoires", "audio", "energie", "divers"];
+// Dossiers de catégories (sans accents, en minuscules)
+const CATEGORIES = [
+  { nom: "telephones", label: "Téléphones portables" },
+  { nom: "accessoires", label: "Accessoires téléphones" },
+  { nom: "audio", label: "Audio / Enceintes" },
+  { nom: "energie", label: "Énergie / Électricité" },
+  { nom: "divers", label: "Divers" }
+];
 
 /* ---------------------------------------------------------
    1. Année dynamique dans le footer
@@ -17,17 +23,16 @@ document.addEventListener("DOMContentLoaded", () => {
   if (yearSpan) yearSpan.textContent = new Date().getFullYear();
 
   // Charger chaque catégorie
-  CATEGORIES.forEach(chargerCategorie);
+  CATEGORIES.forEach((cat) => chargerCategorie(cat.nom, cat.label));
 });
 
 /* ---------------------------------------------------------
    2. Charger les images d'une catégorie via l'API GitHub
    --------------------------------------------------------- */
-async function chargerCategorie(categorie) {
+async function chargerCategorie(categorie, label) {
   const grille = document.querySelector(`.grille[data-category="${categorie}"]`);
   if (!grille) return;
 
-  // Message de chargement
   grille.innerHTML = `<p class="message-vide">Chargement…</p>`;
 
   const url = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/images/${categorie}?ref=${GITHUB_BRANCHE}`;
@@ -35,7 +40,6 @@ async function chargerCategorie(categorie) {
   try {
     const reponse = await fetch(url);
 
-    // Dossier introuvable ou vide
     if (reponse.status === 404) {
       grille.innerHTML = `<p class="message-vide">Aucune image pour le moment.</p>`;
       return;
@@ -47,9 +51,13 @@ async function chargerCategorie(categorie) {
 
     const fichiers = await reponse.json();
 
-    // Filtrer uniquement les images
+    // Filtrer uniquement les images (en ignorant les accents et les espaces)
     const images = fichiers
-      .filter((f) => f.type === "file" && /\.(jpg|jpeg|png|webp|gif)$/i.test(f.name))
+      .filter((f) => {
+        if (f.type !== "file") return false;
+        const nom = f.name.toLowerCase().replace(/\s+/g, "");
+        return /\.(jpg|jpeg|png|webp|gif)$/i.test(nom);
+      })
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
 
     if (images.length === 0) {
@@ -57,7 +65,6 @@ async function chargerCategorie(categorie) {
       return;
     }
 
-    // Vider la grille et afficher les images
     grille.innerHTML = "";
     images.forEach((img) => {
       const lien = document.createElement("a");
@@ -67,8 +74,8 @@ async function chargerCategorie(categorie) {
 
       const image = document.createElement("img");
       image.src = img.download_url;
-      image.alt = `Le Voisin — ${categorie}`;
-      image.loading = "lazy"; // lazy loading natif
+      image.alt = `Le Voisin — ${label}`;
+      image.loading = "lazy";
 
       lien.appendChild(image);
       grille.appendChild(lien);
